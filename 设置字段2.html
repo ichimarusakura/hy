@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>字段管理</title>
+    <!-- 引入 Ant Design CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/antd/4.23.0/antd.min.css">
+    <style>
+        body {
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+
+        .button-group {
+            margin-bottom: 20px;
+        }
+
+        .button-group button {
+            margin-right: 10px;
+        }
+
+        #mainFieldsContainer {
+            margin-top: 20px;
+        }
+
+        #mainFieldsTitle {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .fields-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .field-item {
+            padding: 2px 4px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        #transferModal,
+        #importModal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            width: 600px;
+            background: #fff;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .transfer-title,
+        .import-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .transfer-container {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .transfer-list {
+            width: 40%;
+            border: 1px solid #f0f0f0;
+            border-radius: 4px;
+            padding: 10px;
+            min-height: 200px;
+            overflow-y: auto;
+        }
+
+        .transfer-list h4 {
+            margin-bottom: 10px;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .transfer-list ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .transfer-list li {
+            padding: 5px;
+            border: 1px solid #d9d9d9;
+            border-radius: 2px;
+            margin-bottom: 5px;
+        }
+
+        .transfer-list input {
+            margin-right: 5px;
+        }
+
+        .transfer-controls {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .ant-modal-footer {
+            text-align: right;
+            margin-top: 20px;
+        }
+
+        #fileInput {
+            display: block;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 按钮组 -->
+    <div class="button-group">
+        <button id="setFieldsBtn" class="ant-btn ant-btn-primary">设置主数据字段</button>
+        <button id="importFieldsBtn" class="ant-btn">导入字段</button>
+    </div>
+
+    <!-- 主数据字段容器 -->
+    <div id="mainFieldsContainer">
+        <div id="mainFieldsTitle">主数据字段</div>
+        <div class="fields-grid" id="mainFieldsGrid">
+            <!-- 已选择的字段会以横向栅格排列显示 -->
+        </div>
+    </div>
+
+    <!-- 设置主数据字段的弹出框 -->
+    <div id="transferModal">
+        <div class="transfer-title">设置主数据字段</div>
+        <div class="transfer-container">
+            <div class="transfer-list" id="selectedFieldsList">
+                <h4>已选择的字段</h4>
+                <ul id="selectedFields"></ul>
+            </div>
+            <div class="transfer-controls">
+                <button id="moveToRightBtn" class="ant-btn">移动到右栏</button>
+                <button id="moveToLeftBtn" class="ant-btn ant-btn-primary">移动到左栏</button>
+            </div>
+            <div class="transfer-list" id="unselectedFieldsList">
+                <h4>未选择的字段</h4>
+                <ul id="unselectedFields"></ul>
+            </div>
+        </div>
+        <div class="ant-modal-footer">
+            <button id="cancelBtn" class="ant-btn">取消</button>
+            <button id="confirmBtn" class="ant-btn ant-btn-primary">保存</button>
+        </div>
+    </div>
+
+    <!-- 导入字段的弹出框 -->
+    <div id="importModal">
+        <div class="import-title">导入字段</div>
+        <input type="file" id="fileInput" class="ant-input" />
+        <div class="ant-modal-footer">
+            <button id="cancelImportBtn" class="ant-btn">取消</button>
+            <button id="uploadBtn" class="ant-btn ant-btn-primary">确定</button>
+        </div>
+    </div>
+
+    <!-- 原生 JavaScript 实现 -->
+    <script>
+        const initialFields = [
+            { key: '1', title: 'Name' },
+            { key: '2', title: 'Email' },
+            { key: '3', title: 'Phone' },
+            { key: '4', title: 'Address' },
+            { key: '5', title: 'Company' }
+        ];
+
+        let selectedKeys = [];
+        let unselectedKeys = initialFields.map(field => field.key);
+
+        function openTransferModal() {
+            document.getElementById('transferModal').style.display = 'block';
+            loadTransfer();
+        }
+
+        function openImportModal() {
+            document.getElementById('importModal').style.display = 'block';
+        }
+
+        function closeTransferModal() {
+            document.getElementById('transferModal').style.display = 'none';
+        }
+
+        function closeImportModal() {
+            document.getElementById('importModal').style.display = 'none';
+        }
+
+        function loadTransfer() {
+            const unselectedFieldsList = document.getElementById('unselectedFields');
+            const selectedFieldsList = document.getElementById('selectedFields');
+
+            unselectedFieldsList.innerHTML = '';
+            selectedFieldsList.innerHTML = '';
+
+            unselectedKeys.forEach(key => {
+                const field = initialFields.find(f => f.key === key);
+                const item = document.createElement('li');
+                item.innerHTML = `<input type="checkbox" value="${key}">${field.title}`;
+                unselectedFieldsList.appendChild(item);
+            });
+
+            selectedKeys.forEach(key => {
+                const field = initialFields.find(f => f.key === key);
+                const item = document.createElement('li');
+                item.innerHTML = `<input type="checkbox" value="${key}">${field.title}`;
+                selectedFieldsList.appendChild(item);
+            });
+        }
+
+        function moveFields(sourceListId, targetListId, keysArray, removeFrom, addTo) {
+            const selectedItems = Array.from(document.querySelectorAll(`#${sourceListId} input:checked`));
+            selectedItems.forEach(item => {
+                const key = item.value;
+                if (removeFrom.includes(key)) {
+                    removeFrom.splice(removeFrom.indexOf(key), 1);
+                    addTo.push(key);
+                }
+            });
+            loadTransfer();
+        }
+
+        function confirmSelection() {
+            const mainFieldsGrid = document.getElementById('mainFieldsGrid');
+            mainFieldsGrid.innerHTML = '';
+
+            selectedKeys.forEach(key => {
+                const field = initialFields.find(f => f.key === key);
+                const item = document.createElement('div');
+                item.className = 'field-item';
+                item.textContent = field.title;
+                mainFieldsGrid.appendChild(item);
+            });
+
+            closeTransferModal();
+        }
+
+        function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            if (file) {
+                alert(`文件 ${file.name} 已上传！`);
+                closeImportModal();
+            }
+        }
+
+        document.getElementById('setFieldsBtn').onclick = openTransferModal;
+        document.getElementById('importFieldsBtn').onclick = openImportModal;
+        document.getElementById('cancelBtn').onclick = closeTransferModal;
+        document.getElementById('confirmBtn').onclick = confirmSelection;
+        document.getElementById('cancelImportBtn').onclick = closeImportModal;
+        document.getElementById('uploadBtn').onclick = uploadFile;
+
+        document.getElementById('moveToRightBtn').onclick = () => moveFields('selectedFields', 'unselectedFields', selectedKeys, selectedKeys, unselectedKeys);
+        document.getElementById('moveToLeftBtn').onclick = () => moveFields('unselectedFields', 'selectedFields', unselectedKeys, unselectedKeys, selectedKeys);
+    </script>
+</body>
+</html>
